@@ -1,10 +1,20 @@
 from fastapi.responses import JSONResponse
 import json
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from backend.database import get_connection
+from typing import Optional
+
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/")
 def home():
@@ -78,9 +88,10 @@ def filter_snacks(
     max_calories: Optional[int] = None,
     max_sugar: Optional[float] = None,
     min_protein: Optional[float] = None,
-    oil_type: Optional[str] = None,
+    max_protein: Optional[float] = None,
     packaging: Optional[str] = None,
-    allergen_free: Optional[str] = None,
+    oil_type: Optional[List[str]] = Query(default=None),
+    allergen_free: Optional[List[str]] = Query(default=None),
     halal: Optional[bool] = None,
     brand: Optional[str] = None,
     supplier: Optional[str] = None,
@@ -111,36 +122,44 @@ def filter_snacks(
         query += " AND sd.snacks_type = %s"
         params.append(type)
 
-    if min_calories:
+    if min_calories is not None:
         query += " AND sd.energy_kcal >= %s"
         params.append(min_calories)
 
-    if max_calories:
+    if max_calories is not None:
         query += " AND sd.energy_kcal <= %s"
         params.append(max_calories)
 
-    if max_sugar:
+    if max_sugar is not None:
         query += " AND sd.sugar_g <= %s"
         params.append(max_sugar)
 
-    if min_protein:
+    if min_protein is not None:
         query += " AND sd.protein_g >= %s"
         params.append(min_protein)
 
-    if oil_type:
-        query += " AND %s = ANY(sd.oil_type)"
-        params.append(oil_type)
+    if max_protein:
+        query += " AND sd.protein_g <= %s"
+        params.append(max_protein)
 
-    if packaging:
+    if oil_type:
+        for o in oil_type:
+            query += " AND %s = ANY(sd.oil_type)"
+            params.append(o)
+
+    if packaging :
         query += " AND sd.packaging = %s"
         params.append(packaging)
 
     if allergen_free:
-        query += " AND NOT (%s = ANY(sd.allergens))"
-        params.append(allergen_free)
+        for a in allergen_free:
+            query += " AND NOT (%s = ANY(sd.allergens))"
+            params.append(a)
 
-    if halal:
+    if halal is True:
         query += " AND 'Halal' = ANY(sd.allergens)"
+    elif halal is False:
+        query += " AND NOT ('Halal' = ANY(sd.allergens))"
 
     if brand:
         query += " AND b.name = %s"
@@ -150,20 +169,22 @@ def filter_snacks(
         query += " AND s.company_name = %s"
         params.append(supplier)
 
-    if min_price:
+    if min_price is not None:
         query += " AND bp.price >= %s"
         params.append(min_price)
 
-    if max_price:
+    if max_price is not None:
         query += " AND bp.price <= %s"
         params.append(max_price)
 
     query += " ORDER BY p.name"
 
-    cursor.execute(query, params)
-    rows = cursor.fetchall()
-    cursor.close()
-    conn.close()
+    try:
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+    finally:
+        cursor.close()
+        conn.close()
 
     snacks = []
     for row in rows:

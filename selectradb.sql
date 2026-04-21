@@ -319,17 +319,5 @@ JOIN branches b ON bp.branch_id = b.id
 JOIN snack_details sd ON p.id = sd.product_id
 ORDER BY p.name, b.name;  --alfabetik sırala 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+select*from snack_details
 
