@@ -256,3 +256,193 @@ def get_packaging_types():
         cursor.close()
         conn.close()
     return [row[0] for row in rows]
+
+
+# ── İçecek Endpointleri ──────────────────────────────────────────────────────
+
+@app.get("/beverages")
+def get_beverages():
+    # Stokta olan tüm içecekleri şube, fiyat ve detaylarıyla getirir
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            SELECT
+                p.id, p.name, b.name AS brand, bp.price, bp.stock_quantity,
+                br.name AS branch, bd.beverage_type, bd.energy_kcal,
+                bd.sugar_g, bd.volume, bd.pH, bd.package_type, bd.allergens,
+                p.image_url
+            FROM products p
+            JOIN brands b ON p.brand_id = b.id
+            JOIN branch_products bp ON p.id = bp.product_id
+            JOIN branches br ON bp.branch_id = br.id
+            JOIN beverages_details bd ON p.id = bd.product_id
+            WHERE bp.stock_quantity > 0
+            ORDER BY p.name
+        """)
+        rows = cursor.fetchall()
+    finally:
+        cursor.close()
+        conn.close()
+
+    return JSONResponse(content=[{
+        "id": row[0], "name": row[1], "brand": row[2],
+        "price": float(row[3]), "stock": row[4], "branch": row[5],
+        "type": row[6], "energy_kcal": row[7],
+        "sugar_g": float(row[8]), "volume": float(row[9]),
+        "ph": float(row[10]), "package_type": row[11],
+        "allergens": row[12], "image_url": row[13]
+    } for row in rows], media_type="application/json; charset=utf-8")
+
+
+@app.get("/beverages/filter")
+def filter_beverages(
+    # Ürün özellikleri
+    beverage_type: Optional[List[str]] = Query(default=None),
+    # Besin değerleri
+    min_calories: Optional[int] = None,
+    max_calories: Optional[int] = None,
+    max_sugar: Optional[float] = None,
+    # Hacim
+    volume_ml: Optional[int] = None,
+    # pH
+    min_ph: Optional[float] = None,
+    max_ph: Optional[float] = None,
+    # Paket
+    package_type: Optional[List[str]] = Query(default=None),
+    packaging: Optional[int] = None,
+    # Allerjenler
+    allergen_free: Optional[List[str]] = Query(default=None),
+    # Marka ve tedarikçi
+    brand: Optional[List[str]] = Query(default=None),
+    supplier: Optional[List[str]] = Query(default=None),
+    # Fiyat aralığı
+    min_price: Optional[float] = None,
+    max_price: Optional[float] = None
+):
+    # Kullanıcının seçtiği filtrelere göre dinamik SQL sorgusu oluşturur
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    query = """
+        SELECT
+            p.id, p.name, b.name AS brand, bp.price, bp.stock_quantity,
+            br.name AS branch, s.company_name AS supplier,
+            bd.beverage_type, bd.energy_kcal, bd.sugar_g, bd.volume,
+            bd.pH, bd.package_type, bd.allergens, p.image_url
+        FROM products p
+        JOIN brands b ON p.brand_id = b.id
+        JOIN branch_products bp ON p.id = bp.product_id
+        JOIN branches br ON bp.branch_id = br.id
+        JOIN suppliers s ON br.supplier_id = s.id
+        JOIN beverages_details bd ON p.id = bd.product_id
+        WHERE bp.stock_quantity > 0
+    """
+    params = []
+
+    # Filtreler dinamik olarak eklenir
+    if beverage_type:
+        placeholders = ",".join(["%s"] * len(beverage_type))
+        query += f" AND bd.beverage_type IN ({placeholders})"
+        params.extend(beverage_type)
+    if min_calories is not None:
+        query += " AND bd.energy_kcal >= %s"
+        params.append(min_calories)
+    if max_calories is not None:
+        query += " AND bd.energy_kcal <= %s"
+        params.append(max_calories)
+    if max_sugar is not None:
+        query += " AND bd.sugar_g <= %s"
+        params.append(max_sugar)
+    if volume_ml is not None:
+        query += " AND bd.volume = %s"
+        params.append(volume_ml)
+    if min_ph is not None:
+        query += " AND bd.pH >= %s"
+        params.append(min_ph)
+    if max_ph is not None:
+        query += " AND bd.pH <= %s"
+        params.append(max_ph)
+    if package_type:
+        for pt in package_type:
+            query += " AND %s = ANY(bd.package_type)"
+            params.append(pt)
+    if allergen_free:
+        # Seçilen allerjenleri içermeyen ürünleri getirir
+        for a in allergen_free:
+            query += " AND NOT (%s = ANY(bd.allergens))"
+            params.append(a)
+    if brand:
+        placeholders = ",".join(["%s"] * len(brand))
+        query += f" AND b.name IN ({placeholders})"
+        params.extend(brand)
+    if supplier:
+        placeholders = ",".join(["%s"] * len(supplier))
+        query += f" AND s.company_name IN ({placeholders})"
+        params.extend(supplier)
+    if min_price is not None:
+        query += " AND bp.price >= %s"
+        params.append(min_price)
+    if max_price is not None:
+        query += " AND bp.price <= %s"
+        params.append(max_price)
+
+    query += " ORDER BY p.name"
+
+    try:
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+    finally:
+        cursor.close()
+        conn.close()
+
+    return JSONResponse(content=[{
+        "id": row[0], "name": row[1], "brand": row[2],
+        "price": float(row[3]), "stock": row[4], "branch": row[5],
+        "supplier": row[6], "type": row[7], "energy_kcal": row[8],
+        "sugar_g": float(row[9]), "volume": float(row[10]),
+        "ph": float(row[11]), "package_type": row[12],
+        "allergens": row[13], "image_url": row[14]
+    } for row in rows], media_type="application/json; charset=utf-8")
+
+
+# ── İçecek Filtre Seçenekleri ────────────────────────────────────────────────
+
+@app.get("/beverage-types")
+def get_beverage_types():
+    # Veritabanındaki benzersiz içecek tiplerini getirir
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT DISTINCT beverage_type FROM beverages_details ORDER BY beverage_type")
+        rows = cursor.fetchall()
+    finally:
+        cursor.close()
+        conn.close()
+    return [row[0] for row in rows]
+
+@app.get("/beverage-allergens")
+def get_beverage_allergens():
+    # beverages_details tablosundaki tüm allerjen array'lerini açıp benzersiz olanları getirir
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT DISTINCT unnest(allergens) FROM beverages_details ORDER BY 1")
+        rows = cursor.fetchall()
+    finally:
+        cursor.close()
+        conn.close()
+    return [row[0] for row in rows]
+
+@app.get("/beverage-package-types")
+def get_beverage_package_types():
+    # Veritabanındaki benzersiz paket tiplerini getirir
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT DISTINCT unnest(package_type) FROM beverages_details ORDER BY 1")
+        rows = cursor.fetchall()
+    finally:
+        cursor.close()
+        conn.close()
+    return [row[0] for row in rows]

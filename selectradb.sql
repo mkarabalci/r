@@ -319,5 +319,16 @@ JOIN branches b ON bp.branch_id = b.id
 JOIN snack_details sd ON p.id = sd.product_id
 ORDER BY p.name, b.name;  --alfabetik sırala 
 
-select*from snack_details
+select*from products
+
+ALTER TABLE products ADD COLUMN image_url VARCHAR(500);
+UPDATE products SET image_url = 'https://images.migrosone.com/sanalmarket/product/07010112/07010112-3c6818-1650x1650.jpg' WHERE name = 'Eti Burçak';
+UPDATE products SET image_url = 'https://images.migrosone.com/sanalmarket/product/7017799/7017799-4e443c-1650x1650.jpg' WHERE name = 'Eti Benimo';
+UPDATE products SET image_url = 'https://images.migrosone.com/hemen/product/07160817/7160817-b58034-1650x1650.jpg' WHERE name = 'Eti Karam';
+UPDATE products SET image_url = 'https://images.migrosone.com/sanalmarket/product/07163049/07163049-69adf4-1650x1650.jpg' WHERE name = 'Dido';
+UPDATE products SET image_url = 'https://images.migrosone.com/sanalmarket/product/07012376/07012376_1-e21024-1650x1650.jpg' WHERE name = 'Laviva';
+UPDATE products SET image_url = 'https://cdn.dsmcdn.com/ty1659/prod/QC/20250408/15/1a25c5e4-3c49-366a-8c58-240701b59ed2/1_org_zoom.jpg' WHERE name = 'Lays Klasik';
+UPDATE products SET image_url = 'https://images.migrosone.com/sanalmarket/product/05080147/05080147_1-bd8bce-1650x1650.jpg' WHERE name = 'Lays Baharatlı';
+
+
 
