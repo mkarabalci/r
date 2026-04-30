@@ -7,12 +7,14 @@ import SupplierRegister from "./SupplierRegister"
 import SupplierDashboard from "./SupplierDashboard"
 import CustomerLogin from "./CustomerLogin"
 import CustomerRegister from "./CustomerRegister"
+import Landing from "./Landing"
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Home />} />
+        <Route path="/" element={<Landing />} />
+        <Route path="/home" element={<Home />} />
         <Route path="/snacks" element={<Snacks />} />
         <Route path="/drinks" element={<Beverages />} />
         <Route path="/supplier/login" element={<SupplierLogin />} />

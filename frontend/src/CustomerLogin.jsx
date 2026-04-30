@@ -26,7 +26,7 @@ function CustomerLogin() {
       // Kullanıcı bilgilerini localStorage'a kaydet
       localStorage.setItem("customer", JSON.stringify(data))
       // Ana sayfaya yönlendir
-      navigate("/")
+      navigate("/home")
     } else {
       setError("Email veya şifre yanlış")
     }
